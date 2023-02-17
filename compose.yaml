@@ -7,7 +7,7 @@ services:
     depends_on:
       - devbox
     healthcheck:
-      test: curl --fail ${AIDBOX_URL}/__healthcheck || exit 1
+      test: curl --fail http://devbox:8888/__healthcheck || exit 1
       interval: 1s
       timeout: 20s
       retries: 100
@@ -19,7 +19,7 @@ services:
     depends_on:
       - scheduling-app
     healthcheck:
-      test: curl --fail ${AIDBOX_URL}/scheduling-app-healthcheck || exit 1
+      test: curl --fail http://devbox:8888/scheduling-app-healthcheck || exit 1
       interval: 1s
       timeout: 20s
       retries: 100
@@ -37,27 +37,28 @@ services:
       APP_SECRET: secret
       APP_URL: http://scheduling-app:8091/
       APP_PORT: 8091
+    env_file:
+      - .env.devbox
     volumes:
       - .:/app
     tty: true
   devbox:
-    image: ${AIDBOX_IMAGE}
+    image: healthsamurai/aidboxone:latest
     depends_on:
       - devbox-db
     links:
       - devbox-db:database
     ports:
-      - ${AIDBOX_PORT}:${AIDBOX_PORT}
+      - 8888:8888
     env_file:
       - .env.devbox
     environment:
       - AIDBOX_LICENSE
-      - PGHOST=database
   devbox-db:
-    image: ${PGIMAGE}
+    image: healthsamurai/aidboxdb:14.5
     ports:
-      - ${PGHOSTPORT}:${PGPORT}
+      - 5432:5432
     environment:
-      POSTGRES_USER: ${PGUSER}
-      POSTGRES_PASSWORD: ${PGPASSWORD}
-      POSTGRES_DB: ${PGDATABASE}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: devbox

@@ -2,7 +2,7 @@ version: '3.1'
 services:
   aidbox-ts-generator:
     image: "bedasoftware/aidbox-ts-generator:latest"
-    command: ["-o", "/tmp/aidbox.ts", "-u", "${AIDBOX_URL}", "--user", "$AIDBOX_CLIENT_ID", "--pass", "$AIDBOX_CLIENT_SECRET"]
+    command: ["-o", "/tmp/aidbox.ts", "-u", "http://devbox:8888", "--user", "$AIDBOX_CLIENT_ID", "--pass", "$AIDBOX_CLIENT_SECRET"]
     links:
       - "devbox:devbox"
     env_file:

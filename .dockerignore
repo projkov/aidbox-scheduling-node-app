@@ -10,3 +10,4 @@ LICENSE
 .vscode
 .clj-kondo
 .lsp
+.env
