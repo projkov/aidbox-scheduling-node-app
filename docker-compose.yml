@@ -1,36 +1,37 @@
-version: '3.3'
 services:
-  dockerize-devbox:
-    image: jwilder/dockerize
-    command: dockerize -wait ${AIDBOX_URL}/__healthcheck -timeout 300s
-    depends_on:
-      - devbox
+  devbox-healthcheck:
+    image: curlimages/curl
+    entrypoint: /bin/sleep 10000
     links:
       - devbox
-  dockerize-scheduling-app:
-    image: jwilder/dockerize
-    command: dockerize -wait ${AIDBOX_URL}/scheduling-app-healthcheck -timeout 300s
     depends_on:
       - devbox
+    healthcheck:
+      test: curl --fail ${AIDBOX_URL}/__healthcheck || exit 1
+      interval: 1s
+      timeout: 20s
+      retries: 100
+  scheduling-app-healthcheck:
+    image: curlimages/curl
+    entrypoint: /bin/sleep 10000
     links:
       - devbox
-  dockerize-app:
-    image: jwilder/dockerize
-    command: dockerize -wait ${AIDBOX_URL}/app-healthcheck -timeout 300s
     depends_on:
-      - devbox
-    links:
-      - devbox
+      - scheduling-app
+    healthcheck:
+      test: curl --fail ${AIDBOX_URL}/scheduling-app-healthcheck || exit 1
+      interval: 1s
+      timeout: 20s
+      retries: 100
   scheduling-app:
     build:
       context: .
       dockerfile: Dockerfile.scheduling-node-app.dev
     depends_on:
-      - 'devbox'
+      devbox-healthcheck:
+        condition: service_healthy
     links:
-      - 'devbox'
-    env_file:
-      - .env
+      - devbox
     environment:
       APP_ID: scheduling
       APP_SECRET: secret
@@ -38,49 +39,25 @@ services:
       APP_PORT: 8091
     volumes:
       - .:/app
-    # Colored logs
-    tty: true
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile.node-app.dev
-    depends_on:
-      - 'devbox'
-    links:
-      - 'devbox'
-    env_file:
-      - .env
-    environment:
-      APP_ID: patient-portal
-      APP_SECRET: secret
-      APP_URL: http://app:8090/
-      APP_PORT: 8090
-    volumes:
-      - .:/app
-    # Colored logs
     tty: true
   devbox:
-    image: '${AIDBOX_IMAGE}'
+    image: ${AIDBOX_IMAGE}
     depends_on:
-      - 'devbox-db'
+      - devbox-db
     links:
-      - 'devbox-db:database'
+      - devbox-db:database
     ports:
-      - '${AIDBOX_PORT}:${AIDBOX_PORT}'
-    volumes:
-      - './aidbox-project:/aidbox-project'
+      - ${AIDBOX_PORT}:${AIDBOX_PORT}
     env_file:
-      - .env
+      - .env.devbox
     environment:
-      PGHOST: database
-
+      - AIDBOX_LICENSE
+      - PGHOST=database
   devbox-db:
-    image: '${PGIMAGE}'
+    image: ${PGIMAGE}
     ports:
-      - '${PGHOSTPORT}:${PGPORT}'
-    volumes:
-      - './pgdata:/data'
+      - ${PGHOSTPORT}:${PGPORT}
     environment:
-      POSTGRES_USER: '${PGUSER}'
-      POSTGRES_PASSWORD: '${PGPASSWORD}'
-      POSTGRES_DB: '${PGDATABASE}'
+      POSTGRES_USER: ${PGUSER}
+      POSTGRES_PASSWORD: ${PGPASSWORD}
+      POSTGRES_DB: ${PGDATABASE}
