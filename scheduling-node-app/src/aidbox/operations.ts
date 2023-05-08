@@ -1,9 +1,11 @@
-import { TDispatchProps, TManifestOperation } from '@aidbox/node-server-sdk';
-import { TDispatchOutput } from '@aidbox/node-server-sdk/build/src/dispatch';
 import {
-  TOperationRequest,
-  TOperationRequestType,
-} from '@aidbox/node-server-sdk/build/src/message';
+  DispatchProps,
+  ManifestOperation,
+  DispatchOutput,
+  OperationRequest,
+  OperationRequestType,
+} from '@aidbox/node-server-sdk';
+
 import { isSuccess, RemoteDataResult } from 'aidbox-react/lib/libs/remoteData';
 import {
   getFHIRResource,
@@ -34,7 +36,7 @@ import {
   Slot,
 } from 'shared/src/contrib/aidbox';
 
-import { camelizeParamsNames, generateSlots, generateSlotTemplate, getTimePeriods } from './utils';
+import { camelizeParamsNames, generateSlots, generateSlotTemplate, getTimePeriods } from '../utils';
 
 // Prepare for new aidbox-react
 // It wraps current aidbox-react services and returns pure Promise
@@ -54,12 +56,12 @@ function operationOutcome(code: string, diagnostics: string) {
   } as OperationOutcome;
 }
 
-function safeHandlerFactory<T extends TOperationRequestType = any, U = any>(
-  fn: (request: TOperationRequest<T>, props: TDispatchProps<U>) => Promise<TDispatchOutput>,
+function safeHandlerFactory<T extends OperationRequestType = any, U = any>(
+  fn: (request: OperationRequest<T>, props: DispatchProps<U>) => Promise<DispatchOutput>,
 ) {
-  return async (request: TOperationRequest<T>, props: TDispatchProps<U>) => {
+  return async (request: OperationRequest<T>, props: DispatchProps<U>) => {
     try {
-      return fn({ ...request, params: camelizeParamsNames(request.params) }, props);
+      return fn({ ...request, params: camelizeParamsNames(request.params ?? {}) }, props);
     } catch (err) {
       return {
         resource: err,
@@ -68,7 +70,7 @@ function safeHandlerFactory<T extends TOperationRequestType = any, U = any>(
   };
 }
 
-export const appointmentBook: TManifestOperation<{ resource: Bundle<Appointment | Patient> }> = {
+export const appointmentBook: ManifestOperation<{ resource: Bundle<Appointment | Patient> }> = {
   method: 'POST',
   path: ['Appointment', '$book'],
   handlerFn: safeHandlerFactory(async ({ resource }, _) => {
@@ -162,7 +164,7 @@ interface AppointmentFindParams extends TManifestOperationParams {
   locationReference?: string;
 }
 
-export const appointmentFind: TManifestOperation<{ params: AppointmentFindParams }> = {
+export const appointmentFind: ManifestOperation<{ params: AppointmentFindParams }> = {
   method: 'GET',
   path: ['Appointment', '$find'],
   handlerFn: safeHandlerFactory(async ({ params }, _) => {
