@@ -18,15 +18,21 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@aidbox/node-server-sdk": "^2.0.19",
-    "aidbox-react": "^1.3.2",
+    "@aidbox/node-server-sdk": "^2.1.2",
+    "aidbox-react": "^1.7.0",
     "axios": "^0.20.0",
     "dotenv": "^10.0.0",
+    "koa": "^2.14.2",
+    "koa-bodyparser": "4.4.0",
+    "koa-router": "^12.0.0",
     "shared": "0.0.1"
   },
   "devDependencies": {
     "@types/debug": "^4.1.7",
     "@types/jest": "^27.0.1",
+    "@types/koa": "^2.13.6",
+    "@types/koa-bodyparser": "^4.3.10",
+    "@types/koa-router": "^7.4.4",
     "@types/node": "^16.4.13",
     "@typescript-eslint/eslint-plugin": "^4.29.1",
     "@typescript-eslint/parser": "^4.29.1",
