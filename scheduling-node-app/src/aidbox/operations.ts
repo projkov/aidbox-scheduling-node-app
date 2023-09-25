@@ -29,10 +29,12 @@ import {
   Bundle,
   dateTime,
   HealthcareService,
+  InternalReference,
   OperationOutcome,
   Patient,
   Period,
   PractitionerRole,
+  Reference,
   Slot,
 } from 'shared/src/contrib/aidbox';
 
@@ -96,32 +98,27 @@ async function doAppointmentSave(resource: Bundle<Appointment | Patient>) {
   // TODO: Save patient and appointment in transaction bundle
   const patient = await doPatientSave(extractBundleResources(resource).Patient?.[0]);
 
-  const practitionerRoleRef = appointment.participant!.find(
-    ({ actor }) => actor!.resourceType === 'PractitionerRole',
-  )!.actor!;
-  const visitType = appointment?.serviceType?.[0]?.coding?.[0]?.code;
+  const healthcareServiceRef = appointment.participant?.find(
+    (participant) => participant.actor?.resourceType === 'HealthcareService',
+  )?.actor;
 
-  // TODO: use healthcare service from actors
-  const healthcareService = await removeRD(
-    getFHIRResources<HealthcareService>('HealthcareService', {
-      active: true,
-      'service-type': visitType,
-      '_has:PractitionerRole:service:id': practitionerRoleRef.id,
-    }),
-  )
-    .then(extractBundleResources)
-    .then((resourcesMap) => resourcesMap.HealthcareService[0]);
-
-  if (!healthcareService) {
+  if (!healthcareServiceRef) {
     throw operationOutcome(
       'missingHealthcareService',
-      `Service must be set for visit type ${visitType}`,
+      `HealthcareService must be specified for appointment`,
     );
   }
+
+  const healthcareService = await removeRD(
+    getFHIRResource<HealthcareService>(
+      healthcareServiceRef as InternalReference<HealthcareService>,
+    ),
+  );
+
   if (!healthcareService.duration) {
     throw operationOutcome(
       'missingHealthcareServiceDuration',
-      `Service duration is not specified for visit type ${visitType}`,
+      `Service duration is not specified for healthcare service with id: ${healthcareService.id}`,
     );
   }
 
@@ -144,7 +141,6 @@ async function doAppointmentSave(resource: Bundle<Appointment | Patient>) {
             },
           ]
         : []),
-      { actor: getReference(healthcareService), status: 'accepted' },
     ],
   };
   const savedAppointment = await removeRD(saveFHIRResource<Appointment>(updatedAppointment));
