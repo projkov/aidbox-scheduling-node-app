@@ -34,7 +34,6 @@ import {
   Patient,
   Period,
   PractitionerRole,
-  Reference,
   Slot,
 } from 'shared/src/contrib/aidbox';
 
