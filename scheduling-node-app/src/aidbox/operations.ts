@@ -97,22 +97,45 @@ async function doAppointmentSave(resource: Bundle<Appointment | Patient>) {
   // TODO: Save patient and appointment in transaction bundle
   const patient = await doPatientSave(extractBundleResources(resource).Patient?.[0]);
 
+  const practitionerRoleRef = appointment.participant!.find(
+    ({ actor }) => actor!.resourceType === 'PractitionerRole',
+  )!.actor!;
+
   const healthcareServiceRef = appointment.participant?.find(
     (participant) => participant.actor?.resourceType === 'HealthcareService',
   )?.actor;
 
-  if (!healthcareServiceRef) {
+  const visitType = appointment?.serviceType?.[0]?.coding?.[0]?.code;
+
+  if (!healthcareServiceRef && !visitType) {
     throw operationOutcome(
       'missingHealthcareService',
-      `HealthcareService must be specified for appointment`,
+      `HealthcareService must be specified for appointment via actor (Reference<HealthcareService>) or appointment.serviceType`,
     );
   }
 
-  const healthcareService = await removeRD(
-    getFHIRResource<HealthcareService>(
-      healthcareServiceRef as InternalReference<HealthcareService>,
-    ),
-  );
+  const healthcareService = healthcareServiceRef
+    ? await removeRD(
+        getFHIRResource<HealthcareService>(
+          healthcareServiceRef as InternalReference<HealthcareService>,
+        ),
+      )
+    : await removeRD(
+        getFHIRResources<HealthcareService>('HealthcareService', {
+          active: true,
+          'service-type': visitType,
+          '_has:PractitionerRole:service:id': practitionerRoleRef.id,
+        }),
+      )
+        .then(extractBundleResources)
+        .then((resourcesMap) => resourcesMap.HealthcareService[0]);
+
+  if (!healthcareService) {
+    throw operationOutcome(
+      'missingHealthcareService',
+      `Service must be set for visit type ${visitType}`,
+    );
+  }
 
   if (!healthcareService.duration) {
     throw operationOutcome(
@@ -120,6 +143,21 @@ async function doAppointmentSave(resource: Bundle<Appointment | Patient>) {
       `Service duration is not specified for healthcare service with id: ${healthcareService.id}`,
     );
   }
+
+  const participant = [
+    ...appointment.participant!,
+    ...(patient
+      ? [
+          {
+            actor: getReference(patient),
+            status: 'accepted',
+          },
+        ]
+      : []),
+    ...(!healthcareServiceRef
+      ? [{ actor: getReference(healthcareService), status: 'accepted' }]
+      : []),
+  ];
 
   const updatedAppointment: Appointment = {
     ...appointment,
@@ -130,17 +168,7 @@ async function doAppointmentSave(resource: Bundle<Appointment | Patient>) {
     end: formatFHIRDateTime(
       parseFHIRDateTime(appointment.start!).add(healthcareService.duration!, 'minutes'),
     ),
-    participant: [
-      ...appointment.participant!,
-      ...(patient
-        ? [
-            {
-              actor: getReference(patient),
-              status: 'accepted',
-            },
-          ]
-        : []),
-    ],
+    participant: participant,
   };
   const savedAppointment = await removeRD(saveFHIRResource<Appointment>(updatedAppointment));
 

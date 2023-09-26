@@ -61,7 +61,7 @@ async function setup() {
   });
 }
 
-test('Appointment book operation creates an appointment with filled attrs', async () => {
+test('Appointment book operation creates an appointment with filled attrs via HS as actor', async () => {
   const { practitionerRole, hs2, patient } = await setup();
   const appointmentData: Appointment = {
     resourceType: 'Appointment',
@@ -107,4 +107,54 @@ test('Appointment book operation creates an appointment with filled attrs', asyn
   expect(
     appointment.participant.find(({ actor }) => actor?.resourceType === 'HealthcareService'),
   ).toMatchObject({ actor: getReference(hs2) });
+});
+
+test('Appointment book operation creates an appointment with filled attrs via HS as service type', async () => {
+  const { practitionerRole, hs1, patient } = await setup();
+
+  const appointmentData: Appointment = {
+    resourceType: 'Appointment',
+    serviceType: [
+      {
+        coding: [{ code: 'standard' }],
+      },
+    ],
+    participant: [
+      {
+        actor: getReference(practitionerRole),
+        status: 'accepted',
+      },
+      {
+        actor: getReference(patient),
+        status: 'accepted',
+      },
+    ],
+    start: '2021-10-01T10:00:00Z',
+    status: 'proposed',
+  };
+
+  const dataBundle: Bundle<Appointment> = {
+    resourceType: 'Bundle',
+    type: 'transaction',
+    entry: [{ resource: appointmentData }],
+  };
+
+  const appointment = await withRootAccess(() =>
+    removeRD(
+      service<Appointment>({
+        url: '/Appointment/$book',
+        method: 'POST',
+        data: dataBundle,
+      }),
+    ),
+  );
+  expect(appointment.id).toBeDefined();
+  expect(appointment.end).toBe('2021-10-01T10:45:00Z');
+  expect(
+    appointment.participant.find(({ actor }) => actor?.resourceType === 'HealthcareService'),
+  ).toMatchObject({ actor: getReference(hs1) });
+  expect(
+    appointment.participant.filter(({ actor }) => actor?.resourceType === 'HealthcareService')
+      .length,
+  ).toEqual(1);
 });
