@@ -1,7 +1,8 @@
+import * as faker from 'faker';
+
 import { saveFHIRResource } from 'aidbox-react/lib/services/fhir';
 import { getReference } from 'aidbox-react/lib/services/fhir';
 import { ensure } from 'aidbox-react/lib/utils/tests';
-import * as faker from 'faker';
 
 import {
   Address,
