@@ -71,16 +71,24 @@ function safeHandlerFactory<T extends OperationRequestType = any, U = any>(
   };
 }
 
+function bookOperation(resource: Bundle<Appointment | Patient>) {
+  if (!resource) {
+    throw operationOutcome('badRequest', 'Appointment must be passed');
+  }
+
+  return doAppointmentSave(resource);
+}
+
 export const appointmentBook: ManifestOperation<{ resource: Bundle<Appointment | Patient> }> = {
   method: 'POST',
   path: ['Appointment', '$book'],
-  handlerFn: safeHandlerFactory(async ({ resource }, _) => {
-    if (!resource) {
-      throw operationOutcome('badRequest', 'Appointment must be passed');
-    }
+  handlerFn: safeHandlerFactory(async ({ resource }, _) => bookOperation(resource)),
+};
 
-    return doAppointmentSave(resource);
-  }),
+export const fhirAppointmentBook: ManifestOperation<{ resource: Bundle<Appointment | Patient> }> = {
+  method: 'POST',
+  path: ['fhir', 'Appointment', '$book'],
+  handlerFn: safeHandlerFactory(async ({ resource }, _) => bookOperation(resource)),
 };
 
 function doPatientSave(patient: Patient | undefined) {
@@ -116,19 +124,19 @@ async function doAppointmentSave(resource: Bundle<Appointment | Patient>) {
 
   const healthcareService = healthcareServiceRef
     ? await removeRD(
-        getFHIRResource<HealthcareService>(
-          healthcareServiceRef as InternalReference<HealthcareService>,
-        ),
-      )
+      getFHIRResource<HealthcareService>(
+        healthcareServiceRef as InternalReference<HealthcareService>,
+      ),
+    )
     : await removeRD(
-        getFHIRResources<HealthcareService>('HealthcareService', {
-          active: true,
-          'service-type': visitType,
-          '_has:PractitionerRole:service:id': practitionerRoleRef.id,
-        }),
-      )
-        .then(extractBundleResources)
-        .then((resourcesMap) => resourcesMap.HealthcareService[0]);
+      getFHIRResources<HealthcareService>('HealthcareService', {
+        active: true,
+        'service-type': visitType,
+        '_has:PractitionerRole:service:id': practitionerRoleRef.id,
+      }),
+    )
+      .then(extractBundleResources)
+      .then((resourcesMap) => resourcesMap.HealthcareService[0]);
 
   if (!healthcareService) {
     throw operationOutcome(
@@ -148,11 +156,11 @@ async function doAppointmentSave(resource: Bundle<Appointment | Patient>) {
     ...appointment.participant!,
     ...(patient
       ? [
-          {
-            actor: getReference(patient),
-            status: 'accepted',
-          },
-        ]
+        {
+          actor: getReference(patient),
+          status: 'accepted',
+        },
+      ]
       : []),
     ...(!healthcareServiceRef
       ? [{ actor: getReference(healthcareService), status: 'accepted' }]
@@ -187,14 +195,22 @@ interface AppointmentFindParams extends TManifestOperationParams {
   locationReference?: string;
 }
 
+async function appointmentFindOperation(params: AppointmentFindParams) {
+  return {
+    resource: await doAppointmentFind(params),
+  }
+}
+
+export const fhirAppointmentFind: ManifestOperation<{ params: AppointmentFindParams }> = {
+  method: 'GET',
+  path: ['fhir', 'Appointment', '$find'],
+  handlerFn: safeHandlerFactory(async ({ params }, _) => appointmentFindOperation(params)),
+};
+
 export const appointmentFind: ManifestOperation<{ params: AppointmentFindParams }> = {
   method: 'GET',
   path: ['Appointment', '$find'],
-  handlerFn: safeHandlerFactory(async ({ params }, _) => {
-    return {
-      resource: await doAppointmentFind(params),
-    };
-  }),
+  handlerFn: safeHandlerFactory(async ({ params }, _) => appointmentFindOperation(params)),
 };
 
 export async function doAppointmentFind({
@@ -306,7 +322,7 @@ export async function doAppointmentFind({
         if (
           prevSlot &&
           parseFHIRDateTime(slot.start!).diff(parseFHIRDateTime(prevSlot.start!), 'minutes') ===
-            slotDuration
+          slotDuration
         ) {
           currentEndTime = slot.end!;
         } else {
