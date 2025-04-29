@@ -1,4 +1,4 @@
-name: Build and Release
+name: Build and Release (GitHub)
 
 on:
   push:
@@ -43,6 +43,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: ./Dockerfile.scheduling-node-app
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
